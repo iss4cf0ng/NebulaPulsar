@@ -1,2 +1,3 @@
 # DarkNebula
-A proof-of-concept of Java/C# webshell for Alien webshell tool.
+
+A Java/C# webshell exploit and implant tool, serving as a proof-of-concept for Alien.
