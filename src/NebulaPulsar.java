@@ -82,7 +82,7 @@ public class NebulaPulsar extends ClassLoader
             byte[] abClassBytes = new byte[nClassLength];
             System.arraycopy(abRawPayload, 4, abClassBytes, 0, nClassLength);
             
-            String szTargetMode = getParamValue(szParam, "mode");
+            String szTargetMode = GetParamValue(szParam, "mode");
 
             request.setAttribute("payload", abRawPayload);
             request.setAttribute("len", String.valueOf(nClassLength));

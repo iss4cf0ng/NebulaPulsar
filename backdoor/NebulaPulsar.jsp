@@ -51,7 +51,7 @@ if (request.getMethod().equals("POST")) {
         } catch (InvocationTargetException ite) {
             Throwable cause = ite.getTargetException();
             if (cause instanceof java.lang.LinkageError && cause.getMessage().contains("duplicate class definition")) {
-                out.print("LOADER_ALREADY_EXISTS_RESPONSE_1");
+                out.print("LOADER_ALREADY_EXISTS_RESPONSE");
             } else {
                 out.print("LOADER_FAILED_REAL_CAUSE: " + cause.toString());
             }
