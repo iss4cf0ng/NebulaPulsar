@@ -3,8 +3,10 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.*;
 
-public class Cmd {
+public class DarkMatter
+{
     private Map<String, String> ParseParams(String paramStr)
     {
         Map<String, String> map = new HashMap<String,String>();

@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Collections.Generic;
 
-public class Cmd
+public class DarkMatter
 {
     private Dictionary<string, string> fnParseParams(string szParam)
     {
@@ -84,7 +84,7 @@ public class Cmd
         }
         catch (Exception ex)
         {
-            response.Write("CMD_RUN_ERROR: " + ex.Message);
+            response.Write("DARKMATTER_ERROR: " + ex.Message);
         }
 
         return true;

