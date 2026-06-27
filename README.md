@@ -6,9 +6,13 @@ Unlike traditional webshell demonstrations that focus solely on command executio
 
 The project is intended for security research, malware analysis, and defensive education. It is not designed to be an operational offensive framework.
 
+Technical details: [NebulaPulsar: A Proof-of-Concept In-Memory Implant Framework for JSP and ASP.NET](https://iss4cf0ng.github.io/2026/06/27/2026-6-27-NebulaPulsar/)
+
 <p align="center">
     <img src="https://iss4cf0ng.github.io/images/article/2026-6-27-NebulaPulsar/6.png" width=700/>
 </p>
+
+---
 
 ## Disclaimer
 
@@ -21,6 +25,8 @@ Its purpose is to study the implementation of modern in-memory implants, encrypt
 The project is **not intended for unauthorized access, persistence, or malicious deployment**. Any use against systems without explicit authorization is strictly discouraged.
 
 The author assumes **no responsibility** for any misuse or damage resulting from this project.
+
+---
 
 ## Motivation
 
@@ -44,6 +50,8 @@ Throughout the development process, I studied topics including:
 
 The goal is to understand **how these techniques work**, not to encourage their misuse.
 
+---
+
 ## Demonstration (Screenshot)
 
 ### JSP
@@ -52,11 +60,15 @@ The goal is to understand **how these techniques work**, not to encourage their 
     <img src="https://iss4cf0ng.github.io/images/article/2026-6-27-NebulaPulsar/7.png" width=700/>
 </p>
 
+---
+
 ### ASPX
 
 <p align="center">
     <img src="https://iss4cf0ng.github.io/images/article/2026-6-27-NebulaPulsar/9.png" width=700/>
 </p>
+
+---
 
 ### ASMX
 
@@ -64,17 +76,23 @@ The goal is to understand **how these techniques work**, not to encourage their 
     <img src="https://iss4cf0ng.github.io/images/article/2026-6-27-NebulaPulsar/13.png" width=700/>
 </p>
 
+---
+
 ### ASHX
 
 <p align="center">
     <img src="https://iss4cf0ng.github.io/images/article/2026-6-27-NebulaPulsar/14.png" width=700/>
 </p>
 
+---
+
 ### Wireshark
 
 <p align="center">
     <img src="https://iss4cf0ng.github.io/images/article/2026-6-27-NebulaPulsar/8.png" width=700/>
 </p>
+
+---
 
 ## Usage
 
