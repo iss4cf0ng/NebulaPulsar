@@ -84,6 +84,8 @@ Subsequent payloads, such as **DarkMatter**, are then delivered through this cha
 
 DarkMatter is responsible for implementing more advanced functionality, while NebulaPulsar remains lightweight and focuses on payload management and communication.
 
+---
+
 ## Demonstration (Screenshot)
 
 ### JSP
