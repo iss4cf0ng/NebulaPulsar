@@ -134,6 +134,8 @@ Download:
 
 ```bash
 wget https://github.com/iss4cf0ng/NebulaPulsar/releases/latest/download/NebulaPulsar.tar.gz
+tar -xzf NebulaPulsar.tar.gz
+cd ./NebulaPulsar
 ```
 
 Run with Python:
