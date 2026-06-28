@@ -54,6 +54,36 @@ The goal is to understand **how these techniques work**, not to encourage their 
 
 ---
 
+## Architecture
+
+This framework is divided into two layers:
+
+### NebulaPulsar
+
+NebulaPulsar is the resident in-memory implant. It is responsible for:
+
+- Establishing an encrypted communication channel (AES)
+- Managing HTTP sessions
+- Decrypting incoming payloads
+- Dynamically loading classes/assemblies into memory
+- Managing the payload lifecycle (Persistent / Volatile)
+
+### DarkMatter
+
+DarkMatter is the payload executed by NebulaPulsar.
+
+It implements the actual post-exploitation logic while remaining independent from the transport layer, making it easy to extend with additional modules and capabilities.
+
+### Operating Principle
+
+NebulaPulsar is first injected into the target webshell and remains resident in memory.
+
+Once initialized, it establishes an encrypted communication channel and waits for incoming payloads.
+
+Subsequent payloads, such as **DarkMatter**, are then delivered through this channel. NebulaPulsar decrypts the payload, loads it directly into memory, and transfers execution to it.
+
+DarkMatter is responsible for implementing more advanced functionality, while NebulaPulsar remains lightweight and focuses on payload management and communication.
+
 ## Demonstration (Screenshot)
 
 ### JSP
@@ -98,6 +128,22 @@ The goal is to understand **how these techniques work**, not to encourage their 
 
 ## Usage
 
+Download:
+
+```bash
+wget https://github.com/iss4cf0ng/NebulaPulsar/releases/latest/download/NebulaPulsar.tar.gz
+```
+
+Run with Python:
+
 ```bash
 python3 main.py --url http://localhost/nebulapulsar.jsp --script java --encoding='utf-8'
 ```
+
+# Future Plans
+
+- Add more functionalities for DarkMatter (payload)
+
+# Thanks
+
+Thanks for checking out this project. Feedback and suggestions are welcome.
