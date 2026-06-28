@@ -14,6 +14,10 @@ Technical details: [NebulaPulsar: A Proof-of-Concept In-Memory Implant Framework
 
 If you find this project helpful or informative, I would truly appreciate a ⭐ on the repository. Your support would be a great motivation for me to continue improving this tool.
 
+<p align="center">
+    <img src="https://iss4cf0ng.github.io/images/meme/mika_love.png" width=250/>
+</p>
+
 ---
 
 ## Disclaimer
