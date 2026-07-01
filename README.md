@@ -4,6 +4,8 @@
     <img src="https://iss4cf0ng.github.io/images/article/2026-6-27-NebulaPulsar/6.png" width=700/>
 </p>
 
+> Update: This project has now become a sub-project of [Alien](https://github.com/iss4cf0ng/Alien) for demonstrating my ideas and experimental purposes.
+
 NebulaPulsar is a proof-of-concept in-memory implant framework for Java (JSP) and ASP.NET (ASPX/ASHX/ASMX), originally developed as part of the Alien project.
 
 Unlike traditional webshell demonstrations that focus solely on command execution, NebulaPulsar explores how an in-memory implant can establish an encrypted communication channel, dynamically load payloads, and execute them entirely in memory.
