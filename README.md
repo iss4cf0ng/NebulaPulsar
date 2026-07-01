@@ -12,7 +12,9 @@ Unlike traditional webshell demonstrations that focus solely on command executio
 
 The project is intended for security research, malware analysis, and defensive education. It is not designed to be an operational offensive framework.
 
-Technical details: [NebulaPulsar: A Proof-of-Concept In-Memory Implant Framework for JSP and ASP.NET](https://iss4cf0ng.github.io/2026/06/27/2026-6-27-NebulaPulsar/)
+Technical details:
+    - [NebulaPulsar: A Proof-of-Concept In-Memory Implant Framework for JSP and ASP.NET](https://iss4cf0ng.github.io/2026/06/27/2026-6-27-NebulaPulsar/)
+    - [NebulaPulsar 2.0: CFM Webshell and New Features](https://iss4cf0ng.github.io/2026/07/01/2026-7-1-NebulaPulsar2-0/)
 
 If you find this project helpful or informative, I would truly appreciate a ⭐ on the repository. Your support would be a great motivation for me to continue improving this tool.
 
